@@ -7,6 +7,7 @@ pub struct VoteTicket {
 
 use starknet::ContractAddress;
 
+
 #[starknet::interface]
 trait VoteTrait<T> {
     
@@ -24,7 +25,11 @@ trait VoteTrait<T> {
 
     fn add_allowed_voters_signatures(ref self: T, signatures: Array<felt252>);
 
-    fn generate_tokens(ref self: T);
+    fn generate_token(ref self: T, signature: felt252);
+
+    fn get_token(self: @T, signature: felt252) -> felt252;
+
+    fn remove_token(ref self: T, signature: felt252);
 
     fn check_fact_hash(ref self: T, fact_hash: felt252, sec_bits: u32) -> bool;
     
@@ -33,14 +38,16 @@ trait VoteTrait<T> {
 #[starknet::contract]
 mod Vote {
     use starknet::storage::MutableVecTrait;
+    use core::poseidon::PoseidonTrait;
+    use core::hash::HashStateTrait;
     use super::VoteTrait;
     use starknet::ContractAddress;
-    use starknet::get_caller_address;
+    use starknet::{get_caller_address, get_block_timestamp};
     use starknet::storage::{
         StoragePointerReadAccess, StoragePointerWriteAccess, StorageMapReadAccess,
         StorageMapWriteAccess, Map, Vec
     };
-    use integrity::{Integrity, IntegrityWithConfig, SHARP_BOOTLOADER_PROGRAM_HASH, VerifierConfiguration};
+    use integrity::{Integrity, IntegrityWithConfig};
     use super::VoteTicket;
     const YES: u8 = 1_u8;
     const NO: u8 = 0_u8;
@@ -55,6 +62,11 @@ mod Vote {
         allowed_signatures: Map<felt252, bool>,
         admin_address: ContractAddress,
         temp_proof: Vec<felt252>,
+
+        hashed_toknes: Map::<u8, felt252>,
+        hashed_tokens_number: u8,
+
+        signature_to_token: Map::<felt252, felt252>
     }
 
     #[constructor]
@@ -66,6 +78,7 @@ mod Vote {
         self.vote_ticket_number.write(0_u8);
 
         self.admin_address.write(get_caller_address());
+        self.hashed_tokens_number.write(0_u8);
 
         // self.allowed_signatures.write(10, true);
     }
@@ -156,8 +169,34 @@ mod Vote {
             }
         }
 
-        fn generate_tokens(ref self: ContractState) {
+        fn generate_token(ref self: ContractState, signature: felt252) {
+        
+        assert!(self.allowed_signatures.read(signature), "You are not authorized to get a token!");
+
+        // generate tokne basing on partially random assumptions
+
+        let caller = get_caller_address();
+        let timestamp = get_block_timestamp();
+
+        let input1: felt252 = caller.into();
+        let input2: felt252 = timestamp.into();
+
+        let token = PoseidonTrait::new().update(input1).update(input2).finalize();
+        self.signature_to_token.write(signature, token);
+
+        let hashed_token = PoseidonTrait::new().update(token).finalize();
+        self.hashed_toknes.write(self.hashed_tokens_number.read(), hashed_token);
+        self.hashed_tokens_number.write(self.hashed_tokens_number.read() + 1_u8);
+    }
+
+        fn get_token(self: @ContractState, signature: felt252) -> felt252 {
+            self.signature_to_token.read(signature)
+    }
+
+        fn remove_token(ref self: ContractState, signature: felt252) {
+            self.signature_to_token.write(signature, 0);
         }
+
 
         fn check_fact_hash(ref self: ContractState, fact_hash: felt252, sec_bits: u32) -> bool {
             let integrity = Integrity::new();

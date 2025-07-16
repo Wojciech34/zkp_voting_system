@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024_07"
 
 [dependencies]
-starknet = ">=2.4.0"
+starknet = ">=2.5.4"
 integrity = "2.0.0"
 
 
@@ -29,6 +29,7 @@ version = ">=2.4.0"
 
 [[target.starknet-contract]]
 sierra = true
+casm = true
 
 # [scripts]
 # test = "snforge test"
