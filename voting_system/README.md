@@ -1,30 +1,68 @@
-Suggested Tools
- asdf
- scarb (can install via asdf)
+# Starknet Development Notes
 
- Stakrnet RPC Provider https://blastapi.io/
- Starknet Sequencer https://dojoengine.org/toolchain/katana
+## Suggested Tools
 
-Stark local blockchain network
+- [asdf](https://asdf-vm.com/)
+- [Scarb](https://docs.swmansion.com/scarb/) (can be installed via `asdf`)
+
+## Starknet RPC Provider
+
+- [BlastAPI](https://blastapi.io/)
+
+## Blockchain sequencer
+- [Katana (Dojo)](https://dojoengine.org/toolchain/katana)
+
+## Running a Local Starknet Blockchain Network
+
+```bash
 katana --dev --fork.provider https://starknet-sepolia.blastapi.io/API-KEY/rpc/v0_8 --explorer
-note: with compability issues check required starknet rpc version, suggested one is 0.8
+```
 
-To compile smart contract classes in voting_project directory run
+**Note:**  
+Check for compatibility issues with your Starknet RPC version. The suggested version is `v0.8`.
+
+## Compiling Smart Contracts
+
+To compile smart contract classes in the `voting_project` directory:
+
+```bash
 scarb build
+```
 
-note when facing issues with cairo extension for vs code, ensure that path to language server is set correctly 
-(for  example ~/.asdf/installs/scarb/2.11.4/bin/scarb-cairo-language-server)
+**VS Code Tip:**  
+If you face issues with the Cairo extension in VS Code, ensure the language server path is set correctly.  
+Example path:
 
+```bash
+~/.asdf/installs/scarb/2.11.4/bin/scarb-cairo-language-server
+```
 
-To declare contract use
+## Declaring and Deploying Contracts
+
+### Declare Contract
+
+```bash
 sncast declare --contract-name Vote
-Note: contract-name is mod name, the one with #[starknet::contract] header
-Then deploy smart contrakt
+```
+
+> **Note:** `contract-name` refers to the module name marked with `#[starknet::contract]`.
+
+### Deploy Contract
+
+```bash
 sncast deploy --class-hash <class_hash>
+```
 
+## Interacting with Smart Contracts
 
-To interact with smart contract
-not modfifying contract state
+### Read-Only (No State Modification)
+
+```bash
 sncast call --contract-address <contract_address> --function <function_name> --arguments <arguments>
-modifying contract state
-sncast invoke 
+```
+
+### State-Changing (Modifies Contract State)
+
+```bash
+sncast invoke --contract-address <contract_address> --function <function_name> --arguments <arguments>
+```
