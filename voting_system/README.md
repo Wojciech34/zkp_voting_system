@@ -4,6 +4,17 @@
 
 - [asdf](https://asdf-vm.com/)
 - [Scarb](https://docs.swmansion.com/scarb/) (can be installed via `asdf`)
+```bash
+asdf plugin add scarb
+asdf install scarb 2.11.4
+asdf set -u scarb 2.11.4
+```
+- [Sncast](https://foundry-rs.github.io/starknet-foundry)
+```bash
+asdf plugin add starknet-foundry
+asdf install starknet-foundry 0.42.0
+asdf set -u starknet-foundry 0.42.0
+```
 
 ## Starknet RPC Provider
 
@@ -66,3 +77,10 @@ sncast call --contract-address <contract_address> --function <function_name> --a
 ```bash
 sncast invoke --contract-address <contract_address> --function <function_name> --arguments <arguments>
 ```
+## Adding accounts
+```bash
+sncast account create --name <account_name>
+```
+**Note:**
+That command will create accounts folder if not created previously in path (~/.starknet_accounts/starknet_open_zeppelin_accounts.json).
+Easy way to use such account is to copy private and public key and account address from some predeployed account.
