@@ -1,11 +1,10 @@
-#[derive(Drop, Serde, Copy)]
-pub struct VoteTicket {
-    voter: ContractAddress,
-    ticket_number: u8,
-}
+// #[derive(Drop, Serde, Copy)]
+// pub struct VoteTicket {
+//     voter: ContractAddress,
+//     ticket_number: u8,
+// }
 
-
-use starknet::ContractAddress;
+// use starknet::ContractAddress;
 
 
 #[starknet::interface]
@@ -13,15 +12,13 @@ trait VoteTrait<T> {
     
     fn get_vote_status(self: @T) -> (u8, u8, u8, u8);
 
-    fn voter_can_vote(self: @T, user_address: ContractAddress) -> bool;
+    // fn voter_can_vote(self: @T, user_address: ContractAddress) -> bool;
 
-    fn is_voter_registered(self: @T, address: ContractAddress) -> bool;
+    // fn is_voter_registered(self: @T, address: ContractAddress) -> bool;
 
     fn vote(ref self: T, vote:u8);
 
-    fn _register_voters(ref self: T);
-
-    fn send_ticket(ref self: T, user_address: ContractAddress) -> VoteTicket;
+    // fn send_ticket(ref self: T, user_address: ContractAddress) -> VoteTicket;
 
     fn add_allowed_voters_signatures(ref self: T, signatures: Array<felt252>);
 
@@ -29,41 +26,50 @@ trait VoteTrait<T> {
 
     fn get_token(self: @T, signature: felt252) -> felt252;
 
+    fn get_all_tokens_hashes(self: @T) -> Array<felt252>;
+
     fn remove_token(ref self: T, signature: felt252);
 
-    fn check_fact_hash(ref self: T, fact_hash: felt252, sec_bits: u32) -> bool;
+    // fn check_fact_hash(ref self: T, fact_hash: felt252, sec_bits: u32) -> bool;
     
 }
 
 #[starknet::contract]
 mod Vote {
-    use starknet::storage::MutableVecTrait;
+    // use starknet::storage::MutableVecTrait;
     use core::poseidon::PoseidonTrait;
     use core::hash::HashStateTrait;
-    use super::VoteTrait;
+    // use super::VoteTrait;
     use starknet::ContractAddress;
     use starknet::{get_caller_address, get_block_timestamp};
     use starknet::storage::{
         StoragePointerReadAccess, StoragePointerWriteAccess, StorageMapReadAccess,
         StorageMapWriteAccess, Map, Vec
     };
-    use integrity::{Integrity, IntegrityWithConfig};
-    use super::VoteTicket;
+    use integrity::{Integrity, IntegrityWithConfig, calculate_fact_hash};
+    // use super::VoteTicket;
     const YES: u8 = 1_u8;
     const NO: u8 = 0_u8;
+
+    
+
+    // use cartridge_vrf::IVrfProviderDispatcher;
+    // use cartridge_vrf::IVrfProviderDispatcherTrait;
+    // use cartridge_vrf::Source;
 
     #[storage]
     struct Storage {
         yes_votes: u8,
         no_votes: u8,
         vote_ticket_number: u8,
+        // dict storing users who voted
         can_vote: Map::<ContractAddress, bool>,
-        registered_voter: Map<ContractAddress, bool>,
+        // registered_voter: Map<ContractAddress, bool>,
         allowed_signatures: Map<felt252, bool>,
         admin_address: ContractAddress,
         temp_proof: Vec<felt252>,
 
-        hashed_toknes: Map::<u8, felt252>,
+        hashed_tokens: Map::<u8, felt252>,
         hashed_tokens_number: u8,
 
         signature_to_token: Map::<felt252, felt252>
@@ -109,26 +115,59 @@ mod Vote {
 
     #[abi(embed_v0)]
     impl VoteImpl of super::VoteTrait<ContractState> {
+        // data returned is in hexadecimal format
         fn get_vote_status(self: @ContractState) -> (u8, u8, u8, u8) {
             let (n_yes, n_no) = self._get_voting_result();
             let (yes_percentage, no_percentage) = self._get_voting_result_in_percentage();
             (n_yes, n_no, yes_percentage, no_percentage)
         }
 
-        fn voter_can_vote(self: @ContractState, user_address: ContractAddress) -> bool {
-            self.can_vote.read(user_address)
-        }
+        // fn voter_can_vote(self: @ContractState, user_address: ContractAddress) -> bool {
+        //     self.can_vote.read(user_address)
+        // }
 
-        fn is_voter_registered(self: @ContractState, address:ContractAddress) -> bool {
-            self.registered_voter.read(address)
-        }
+        // fn is_voter_registered(self: @ContractState, address:ContractAddress) -> bool {
+        //     self.registered_voter.read(address)
+        // }
 
         fn vote(ref self: ContractState, vote: u8) {
             assert!(vote == NO || vote == YES, "Vote_0_OR_1");
             let caller: ContractAddress = get_caller_address();
-            self._assert_allowed(caller);
-            self.can_vote.write(caller, false);
+            self._assert_user_not_voted(caller);
+            let caller_felt252 : felt252 = caller.into();
 
+
+            if false { // for debug purposes
+
+
+            // verify that proof for caller address has been registered
+            // required security bits
+            let SECURITY_BITS = 70;
+            // hash of a program, from which proof should be generated
+            let program_hash = 0x59874649ccc5a0a15ee77538f1eb760acb88cab027a2d48f4246bf17b7b7694;
+            // expected output of a program, which is [caller address, hashed_token1, hashed_token2 ... hashed_tokenN]
+            let tokens_hashes = self._get_all_tokens_hashes();
+            let mut output: Array<felt252> = ArrayTrait::new();
+            
+            output.append(caller_felt252);
+            
+            for token_hash in tokens_hashes {
+                output.append(token_hash);
+            }
+            
+            // with program hash and otput fact_hash can be calculated
+            let fact_hash = calculate_fact_hash(program_hash, output.span());
+            let integrity = Integrity::new();
+            // check if fact_hash was registered
+            let mut is_verified = false;
+            if integrity.is_fact_hash_valid_with_security(fact_hash, SECURITY_BITS) {
+                is_verified = true;
+            }
+            assert!(is_verified, "Account with this address did not register valid fact hash of possesing token");
+            
+            }
+
+            self.can_vote.write(caller, false);
             if (vote == NO) {
                 self.no_votes.write(self.no_votes.read() + 1_u8);
             }
@@ -139,23 +178,13 @@ mod Vote {
             self.emit(VoteCast { voter: caller, vote: vote });
         }
 
-        fn _register_voters(ref self: ContractState) {
-        // self.registered_voter.write(voter_1, true);
-        // self.registered_voter.write(voter_2, true);
-        // self.registered_voter.write(voter_3, true);
+    //     fn send_ticket(ref self: ContractState, user_address: ContractAddress) -> VoteTicket {
 
-        // self.can_vote.write(voter_1, true);
-        // self.can_vote.write(voter_2, true);
-        // self.can_vote.write(voter_3, true);
-    }
+    //     let vote_ticket = VoteTicket {voter: user_address, ticket_number: self.vote_ticket_number.read() };
+    //     self.vote_ticket_number.write(self.vote_ticket_number.read() + 1_u8);
+    //     vote_ticket
 
-        fn send_ticket(ref self: ContractState, user_address: ContractAddress) -> VoteTicket {
-
-        let vote_ticket = VoteTicket {voter: user_address, ticket_number: self.vote_ticket_number.read() };
-        self.vote_ticket_number.write(self.vote_ticket_number.read() + 1_u8);
-        vote_ticket
-
-    }
+    // }
         fn add_allowed_voters_signatures(ref self: ContractState, signatures: Array<felt252>) {
             let caller: ContractAddress = get_caller_address();
             assert!(caller != self.admin_address.read(), "Only admin can add singatures!");
@@ -171,26 +200,30 @@ mod Vote {
 
         fn generate_token(ref self: ContractState, signature: felt252) {
         
-        assert!(self.allowed_signatures.read(signature), "You are not authorized to get a token!");
+            assert!(self.allowed_signatures.read(signature), "You are not authorized to get a token!");
 
-        // generate tokne basing on partially random assumptions
+            // generate tokne basing on partially random assumptions
 
-        let caller = get_caller_address();
-        let timestamp = get_block_timestamp();
+            let caller = get_caller_address();
+            let timestamp = get_block_timestamp();
 
-        let input1: felt252 = caller.into();
-        let input2: felt252 = timestamp.into();
+            let input1: felt252 = caller.into();
+            let input2: felt252 = timestamp.into();
 
-        let token = PoseidonTrait::new().update(input1).update(input2).finalize();
-        self.signature_to_token.write(signature, token);
+            let token = PoseidonTrait::new().update(input1).update(input2).finalize();
+            self.signature_to_token.write(signature, token);
 
-        let hashed_token = PoseidonTrait::new().update(token).finalize();
-        self.hashed_toknes.write(self.hashed_tokens_number.read(), hashed_token);
-        self.hashed_tokens_number.write(self.hashed_tokens_number.read() + 1_u8);
+            let hashed_token = PoseidonTrait::new().update(token).finalize();
+            self.hashed_tokens.write(self.hashed_tokens_number.read(), hashed_token);
+            self.hashed_tokens_number.write(self.hashed_tokens_number.read() + 1_u8);
     }
 
         fn get_token(self: @ContractState, signature: felt252) -> felt252 {
             self.signature_to_token.read(signature)
+    }
+
+        fn get_all_tokens_hashes(self: @ContractState) -> Array<felt252> {
+            self._get_all_tokens_hashes()
     }
 
         fn remove_token(ref self: ContractState, signature: felt252) {
@@ -198,27 +231,34 @@ mod Vote {
         }
 
 
-        fn check_fact_hash(ref self: ContractState, fact_hash: felt252, sec_bits: u32) -> bool {
-            let integrity = Integrity::new();
-            let mut ret = true;
-            if (!integrity.is_fact_hash_valid_with_security(fact_hash, sec_bits)){
-                ret = false;
-            }
-            ret
-        }  
+        // fn check_fact_hash(ref self: ContractState, fact_hash: felt252, sec_bits: u32) -> bool {
+        //     let integrity = Integrity::new();
+        //     let mut ret = true;
+        //     if (!integrity.is_fact_hash_valid_with_security(fact_hash, sec_bits)){
+        //         ret = false;
+        //     }
+        //     ret
+        // }  
     }
 
     #[generate_trait]
+    impl TokensImpl of TokensTrait {
+    fn _get_all_tokens_hashes(self: @ContractState) -> Array<felt252> {
+        let mut _hashed_tokens: Array<felt252> = ArrayTrait::new();
+        let mut i = 0_u8;
+        while i != self.hashed_tokens_number.read() {
+            _hashed_tokens.append(self.hashed_tokens.read(i));
+            i += 1;
+        }
+        _hashed_tokens
+    }
+    }
+    
+
+    #[generate_trait]
     impl AssertsImpl of AssertsTrait {
-        fn _assert_allowed(ref self: ContractState, address: ContractAddress) {
-            let is_voter: bool = self.registered_voter.read((address));
+        fn _assert_user_not_voted(ref self: ContractState, address: ContractAddress) {
             let can_vote: bool = self.can_vote.read((address));
-
-            if (!is_voter) {
-                self.emit(UnauthorizedAttempt {unauthorized_address: address});
-            }
-
-            assert!(is_voter, "USER_NOT_REGISTERED");
             assert!(can_vote, "USER_ALREADY_VOTED");
         }
     }
