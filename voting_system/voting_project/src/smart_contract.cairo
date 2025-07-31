@@ -10,13 +10,13 @@
 #[starknet::interface]
 trait VoteTrait<T> {
     
-    fn get_vote_status(self: @T) -> (u8, u8, u8, u8);
+    fn get_vote_status(self: @T) -> (u32, u32, u32, u32);
 
     // fn voter_can_vote(self: @T, user_address: ContractAddress) -> bool;
 
     // fn is_voter_registered(self: @T, address: ContractAddress) -> bool;
 
-    fn vote(ref self: T, vote:u8);
+    fn vote(ref self: T, vote: u8);
 
     // fn send_ticket(ref self: T, user_address: ContractAddress) -> VoteTicket;
 
@@ -30,6 +30,8 @@ trait VoteTrait<T> {
 
     fn remove_token(ref self: T, signature: felt252);
 
+    fn set_voting_phase(ref self: T);
+
     // fn check_fact_hash(ref self: T, fact_hash: felt252, sec_bits: u32) -> bool;
     
 }
@@ -37,7 +39,8 @@ trait VoteTrait<T> {
 #[starknet::contract]
 mod Vote {
     // use starknet::storage::MutableVecTrait;
-    use core::poseidon::PoseidonTrait;
+    //use super::VoteTrait;
+use core::poseidon::PoseidonTrait;
     use core::hash::HashStateTrait;
     // use super::VoteTrait;
     use starknet::ContractAddress;
@@ -59,32 +62,35 @@ mod Vote {
 
     #[storage]
     struct Storage {
-        yes_votes: u8,
-        no_votes: u8,
-        vote_ticket_number: u8,
+        yes_votes: u32,
+        no_votes: u32,
+        vote_ticket_number: u32,
         // dict storing users who voted
-        can_vote: Map::<ContractAddress, bool>,
+        users_who_voted: Map::<ContractAddress, bool>,
         // registered_voter: Map<ContractAddress, bool>,
         allowed_signatures: Map<felt252, bool>,
         admin_address: ContractAddress,
         temp_proof: Vec<felt252>,
 
-        hashed_tokens: Map::<u8, felt252>,
-        hashed_tokens_number: u8,
+        hashed_tokens: Map::<u32, felt252>,
+        hashed_tokens_number: u32,
 
-        signature_to_token: Map::<felt252, felt252>
+        signature_to_token: Map::<felt252, felt252>,
+        voting_phase_enabled: bool
     }
 
     #[constructor]
     fn constructor(
         ref self: ContractState,
     ) {
-        self.yes_votes.write(0_u8);
-        self.no_votes.write(0_u8);
-        self.vote_ticket_number.write(0_u8);
+        self.yes_votes.write(0_u32);
+        self.no_votes.write(0_u32);
+        self.vote_ticket_number.write(0_u32);
 
         self.admin_address.write(get_caller_address());
-        self.hashed_tokens_number.write(0_u8);
+        self.hashed_tokens_number.write(0_u32);
+
+        self.voting_phase_enabled.write(false);
 
         // self.allowed_signatures.write(10, true);
     }
@@ -116,7 +122,7 @@ mod Vote {
     #[abi(embed_v0)]
     impl VoteImpl of super::VoteTrait<ContractState> {
         // data returned is in hexadecimal format
-        fn get_vote_status(self: @ContractState) -> (u8, u8, u8, u8) {
+        fn get_vote_status(self: @ContractState) -> (u32, u32, u32, u32) {
             let (n_yes, n_no) = self._get_voting_result();
             let (yes_percentage, no_percentage) = self._get_voting_result_in_percentage();
             (n_yes, n_no, yes_percentage, no_percentage)
@@ -131,6 +137,9 @@ mod Vote {
         // }
 
         fn vote(ref self: ContractState, vote: u8) {
+            assert!(self.voting_phase_enabled.read(), "Voting phase is not yet enabled and generating tokens is still possible");
+
+
             assert!(vote == NO || vote == YES, "Vote_0_OR_1");
             let caller: ContractAddress = get_caller_address();
             self._assert_user_not_voted(caller);
@@ -167,12 +176,12 @@ mod Vote {
             
             }
 
-            self.can_vote.write(caller, false);
+            self.users_who_voted.write(caller, true);
             if (vote == NO) {
-                self.no_votes.write(self.no_votes.read() + 1_u8);
+                self.no_votes.write(self.no_votes.read() + 1_u32);
             }
             if (vote == YES) {
-                self.yes_votes.write(self.yes_votes.read() + 1_u8);
+                self.yes_votes.write(self.yes_votes.read() + 1_u32);
             }
 
             self.emit(VoteCast { voter: caller, vote: vote });
@@ -199,6 +208,8 @@ mod Vote {
         }
 
         fn generate_token(ref self: ContractState, signature: felt252) {
+
+            assert!(!self.voting_phase_enabled.read(), "Voting phase is enabled and generating tokens is no longer possible");
         
             assert!(self.allowed_signatures.read(signature), "You are not authorized to get a token!");
 
@@ -215,7 +226,7 @@ mod Vote {
 
             let hashed_token = PoseidonTrait::new().update(token).finalize();
             self.hashed_tokens.write(self.hashed_tokens_number.read(), hashed_token);
-            self.hashed_tokens_number.write(self.hashed_tokens_number.read() + 1_u8);
+            self.hashed_tokens_number.write(self.hashed_tokens_number.read() + 1_u32);
     }
 
         fn get_token(self: @ContractState, signature: felt252) -> felt252 {
@@ -228,6 +239,12 @@ mod Vote {
 
         fn remove_token(ref self: ContractState, signature: felt252) {
             self.signature_to_token.write(signature, 0);
+        }
+
+        fn set_voting_phase(ref self: ContractState) {
+            let caller: ContractAddress = get_caller_address();
+            assert!(caller != self.admin_address.read(), "Only admin can set voting phase!");
+            self.voting_phase_enabled.write(true);
         }
 
 
@@ -245,7 +262,7 @@ mod Vote {
     impl TokensImpl of TokensTrait {
     fn _get_all_tokens_hashes(self: @ContractState) -> Array<felt252> {
         let mut _hashed_tokens: Array<felt252> = ArrayTrait::new();
-        let mut i = 0_u8;
+        let mut i = 0_u32;
         while i != self.hashed_tokens_number.read() {
             _hashed_tokens.append(self.hashed_tokens.read(i));
             i += 1;
@@ -258,31 +275,31 @@ mod Vote {
     #[generate_trait]
     impl AssertsImpl of AssertsTrait {
         fn _assert_user_not_voted(ref self: ContractState, address: ContractAddress) {
-            let can_vote: bool = self.can_vote.read((address));
-            assert!(can_vote, "USER_ALREADY_VOTED");
+            let can_vote: bool = self.users_who_voted.read(address);
+            assert!(!can_vote, "USER_ALREADY_VOTED");
         }
     }
 
     #[generate_trait]
     impl VoteResultFunctionsImpl of VoteResultFunctionsTrait{
-        fn _get_voting_result(self: @ContractState) -> (u8, u8) {
-            let n_yes: u8 = self.yes_votes.read();
-            let n_no: u8 = self.no_votes.read();
+        fn _get_voting_result(self: @ContractState) -> (u32, u32) {
+            let n_yes: u32 = self.yes_votes.read();
+            let n_no: u32 = self.no_votes.read();
             
             (n_yes, n_no)
         }
 
-        fn _get_voting_result_in_percentage(self: @ContractState) -> (u8, u8) {
-            let n_yes: u8 = self.yes_votes.read();
-            let n_no: u8 = self.no_votes.read();
+        fn _get_voting_result_in_percentage(self: @ContractState) -> (u32, u32) {
+            let n_yes: u32 = self.yes_votes.read();
+            let n_no: u32 = self.no_votes.read();
 
-            let total_votes: u8 = n_yes + n_no;
+            let total_votes: u32 = n_yes + n_no;
 
-            if (total_votes == 0_u8) {
+            if (total_votes == 0_u32) {
                 return (0, 0);
             }
-            let yes_percentage: u8 = (n_yes * 100_u8) / (total_votes);
-            let no_percentage: u8 = (n_no * 100_u8) / (total_votes);
+            let yes_percentage: u32 = (n_yes * 100_u32) / (total_votes);
+            let no_percentage: u32 = (n_no * 100_u32) / (total_votes);
 
             (yes_percentage, no_percentage)
         }

@@ -46,4 +46,4 @@ sncast \
     --contract-address "$contract_address" \
     --function "verify_proof_full_and_register_fact" \
     --calldata $layout $hasher $stone_version $memory_verification $calldata \
-    --fee-token strk
+#    --fee-token strk

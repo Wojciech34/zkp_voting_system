@@ -50,6 +50,8 @@ Example path:
 
 ## Declaring and Deploying Contracts
 
+> **Note:** run following commands in voting_project directory.
+
 ### Declare Contract
 
 ```bash
@@ -84,3 +86,14 @@ sncast account create --name <account_name>
 **Note:**
 That command will create accounts folder if not created previously in path (~/.starknet_accounts/starknet_open_zeppelin_accounts.json).
 Easy way to use such account is to copy private and public key and account address from some predeployed account.
+
+## Running Tests
+To run test in client_app directory run
+
+```bash
+PYTHONPATH=. python3 tests/example_voting_test.py
+```
+or
+```bash
+PYTHONPATH=. python3 tests/integration_test.py
+```

@@ -1,0 +1,27 @@
+#[sncast.default]
+##accounts-file = "~/.starknet_accounts/starknet_open_zeppelin_accounts.json"
+#account = "account-2"
+#url = "http://127.0.0.1:5050"
+##url = "https://starknet-sepolia.infura.io/v3/3f29c2d887c540db95e4162aad10c430"
+#
+#[profile.default]
+#url = "http://127.0.0.1:5050"
+##url = "https://starknet-sepolia.infura.io/v3/3f29c2d887c540db95e4162aad10c430"
+#account = "account-2"
+#
+##[accounts.local_account]
+##address = "0x127fd5f1fe78a71f8bcd1fec63e3fe2f0486b6ecd5c86a0466c3a21fa5cfcec"
+##private_key = "0xc5b2fcab997346f3ea1c00b002ecf6f382c5f9c9659a3894eb783c5320f912"
+
+
+# Visit https://foundry-rs.github.io/starknet-foundry/appendix/snfoundry-toml.html
+# and https://foundry-rs.github.io/starknet-foundry/projects/configuration.html for more information
+
+[sncast.default]                                         # Define a profile name
+url = "http://127.0.0.1:5050" # Url of the RPC provider
+accounts-file = "~/.starknet_accounts/starknet_open_zeppelin_accounts.json"                        # Path to the file with the account data
+account = "my-account-1"                                     # Account from `accounts_file` or default account file that will be used for the transactions
+# keystore = "~/test-keystore"                                  # Path to the keystore file
+wait-params = { timeout = 300, retry-interval = 10 }     # Wait for submitted transaction parameters
+block-explorer = "StarkScan"                             # Block explorer service used to display links to transaction details
+show-explorer-links = true
