@@ -83,7 +83,7 @@ sncast invoke --contract-address <contract_address> --function <function_name> -
 ```bash
 sncast account create --name <account_name>
 ```
-**Note:**
+**Notes:**
 - That command will create accounts folder if not created previously in path (~/.starknet_accounts/starknet_open_zeppelin_accounts.json).
 - Easy way to use such account is to copy private and public key and account address from some predeployed account.
 - After creating account you probably want to change the "account" variable in the file `voting_system/voting_project/snfoundry.toml`.
@@ -98,3 +98,6 @@ or
 ```bash
 PYTHONPATH=. python3 tests/integration_test.py
 ```
+**Notes:**
+- You shall change the variable `STONE_CLI_PATH` from file `voting_system/client_app/proof_generator.py` to your own path.
+- You shall change the variable `SC_REPO_PATH` from file `voting_system/client_app/sc_interactions.py` to your own path.
