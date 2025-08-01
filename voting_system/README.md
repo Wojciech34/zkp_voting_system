@@ -84,8 +84,9 @@ sncast invoke --contract-address <contract_address> --function <function_name> -
 sncast account create --name <account_name>
 ```
 **Note:**
-That command will create accounts folder if not created previously in path (~/.starknet_accounts/starknet_open_zeppelin_accounts.json).
-Easy way to use such account is to copy private and public key and account address from some predeployed account.
+- That command will create accounts folder if not created previously in path (~/.starknet_accounts/starknet_open_zeppelin_accounts.json).
+- Easy way to use such account is to copy private and public key and account address from some predeployed account.
+- After creating account you probably want to change the "account" variable in the file `voting_system/voting_project/snfoundry.toml`.
 
 ## Running Tests
 To run test in client_app directory run
