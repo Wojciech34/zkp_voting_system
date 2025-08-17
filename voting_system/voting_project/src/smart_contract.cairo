@@ -1,64 +1,34 @@
-// #[derive(Drop, Serde, Copy)]
-// pub struct VoteTicket {
-//     voter: ContractAddress,
-//     ticket_number: u8,
-// }
-
-// use starknet::ContractAddress;
-
-
 #[starknet::interface]
 trait VoteTrait<T> {
     
     fn get_vote_status(self: @T) -> (u32, u32, u32, u32);
 
-    // fn voter_can_vote(self: @T, user_address: ContractAddress) -> bool;
+    fn vote(ref self: T, token_hash: felt252, vote: u8);
 
-    // fn is_voter_registered(self: @T, address: ContractAddress) -> bool;
-
-    fn vote(ref self: T, vote: u8);
-
-    // fn send_ticket(ref self: T, user_address: ContractAddress) -> VoteTicket;
-
-    fn add_allowed_voters_signatures(ref self: T, signatures: Array<felt252>);
-
-    fn generate_token(ref self: T, signature: felt252);
-
-    fn get_token(self: @T, signature: felt252) -> felt252;
+    fn add_tokens_hashes(ref self: T, tokens_hashes: Array<felt252>);
 
     fn get_all_tokens_hashes(self: @T) -> Array<felt252>;
 
-    fn remove_token(ref self: T, signature: felt252);
-
-    fn set_voting_phase(ref self: T);
-
     // fn check_fact_hash(ref self: T, fact_hash: felt252, sec_bits: u32) -> bool;
+
+    fn test123(ref self: T, items: Array<felt252>) -> felt252;
     
 }
 
 #[starknet::contract]
 mod Vote {
-    // use starknet::storage::MutableVecTrait;
-    //use super::VoteTrait;
+
 use core::poseidon::PoseidonTrait;
     use core::hash::HashStateTrait;
-    // use super::VoteTrait;
     use starknet::ContractAddress;
-    use starknet::{get_caller_address, get_block_timestamp};
+    use starknet::{get_caller_address};
     use starknet::storage::{
         StoragePointerReadAccess, StoragePointerWriteAccess, StorageMapReadAccess,
-        StorageMapWriteAccess, Map, Vec
+        StorageMapWriteAccess, Map
     };
     use integrity::{Integrity, IntegrityWithConfig, calculate_fact_hash};
-    // use super::VoteTicket;
     const YES: u8 = 1_u8;
     const NO: u8 = 0_u8;
-
-    
-
-    // use cartridge_vrf::IVrfProviderDispatcher;
-    // use cartridge_vrf::IVrfProviderDispatcherTrait;
-    // use cartridge_vrf::Source;
 
     #[storage]
     struct Storage {
@@ -67,16 +37,11 @@ use core::poseidon::PoseidonTrait;
         vote_ticket_number: u32,
         // dict storing users who voted
         users_who_voted: Map::<ContractAddress, bool>,
-        // registered_voter: Map<ContractAddress, bool>,
-        allowed_signatures: Map<felt252, bool>,
+        // dict storing used hashed tokens
+        used_tokens_hashes: Map::<felt252, bool>,
         admin_address: ContractAddress,
-        temp_proof: Vec<felt252>,
-
         hashed_tokens: Map::<u32, felt252>,
         hashed_tokens_number: u32,
-
-        signature_to_token: Map::<felt252, felt252>,
-        voting_phase_enabled: bool
     }
 
     #[constructor]
@@ -90,9 +55,6 @@ use core::poseidon::PoseidonTrait;
         self.admin_address.write(get_caller_address());
         self.hashed_tokens_number.write(0_u32);
 
-        self.voting_phase_enabled.write(false);
-
-        // self.allowed_signatures.write(10, true);
     }
 
     #[event]
@@ -100,6 +62,8 @@ use core::poseidon::PoseidonTrait;
     enum Event {
         VoteCast: VoteCast,
         UnauthorizedAttempt: UnauthorizedAttempt,
+        FactHash: FactHash,
+        Output: Output
     }
 
     #[derive(Drop, starknet::Event)]
@@ -111,6 +75,16 @@ use core::poseidon::PoseidonTrait;
     #[derive(Drop, starknet::Event)]
     struct UnauthorizedAttempt {
         unauthorized_address: ContractAddress,
+    }
+
+    #[derive(Drop, starknet::Event)]
+    struct FactHash {
+        fact_hash: felt252,
+    }
+
+    #[derive(Drop, starknet::Event)]
+    struct Output {
+        output: Span<felt252>,
     }
 
     // #[derive(Drop)]
@@ -128,55 +102,89 @@ use core::poseidon::PoseidonTrait;
             (n_yes, n_no, yes_percentage, no_percentage)
         }
 
-        // fn voter_can_vote(self: @ContractState, user_address: ContractAddress) -> bool {
-        //     self.can_vote.read(user_address)
-        // }
+        fn test123(ref self: ContractState, items: Array<felt252>) -> felt252 {
+            let mut output_hash = PoseidonTrait::new();
+            let new_items = items.span();
 
-        // fn is_voter_registered(self: @ContractState, address:ContractAddress) -> bool {
-        //     self.registered_voter.read(address)
-        // }
+            self.emit(Output {output: new_items});
 
-        fn vote(ref self: ContractState, vote: u8) {
-            assert!(self.voting_phase_enabled.read(), "Voting phase is not yet enabled and generating tokens is still possible");
+            for el in new_items {
+                output_hash = output_hash.update(*el);
+                self.emit(FactHash {fact_hash: *el});
+            };
+            let m = output_hash.finalize();
+            self.emit(FactHash {fact_hash: m});
+            // output_hash.finalize()
+            m
+            
+        }
 
-
+        fn vote(ref self: ContractState, token_hash:felt252, vote: u8) {
             assert!(vote == NO || vote == YES, "Vote_0_OR_1");
             let caller: ContractAddress = get_caller_address();
             self._assert_user_not_voted(caller);
+            
             let caller_felt252 : felt252 = caller.into();
 
-
-            if false { // for debug purposes
-
-
+            // ********************************************************
             // verify that proof for caller address has been registered
+            // ********************************************************
+
+
             // required security bits
-            let SECURITY_BITS = 70;
+            let SECURITY_BITS = 32;
+
             // hash of a program, from which proof should be generated
-            let program_hash = 0x59874649ccc5a0a15ee77538f1eb760acb88cab027a2d48f4246bf17b7b7694;
-            // expected output of a program, which is [caller address, hashed_token1, hashed_token2 ... hashed_tokenN]
-            let tokens_hashes = self._get_all_tokens_hashes();
-            let mut output: Array<felt252> = ArrayTrait::new();
+            let program_hash = 0x42b84f0d9d23d1c67a0271f4e6577b1715214c88f8e7912abb92e6daa4ff58a;
             
-            output.append(caller_felt252);
+            // expected output of a program, which is [caller address, hashed_token1, hashed_token2 ... hashed_tokenN]
+            let tokens_hashes = self._get_all_tokens_hashes().span();
+            let mut expected_output: Array<felt252> = ArrayTrait::new();
+
+            expected_output.append(0);
+
+            let hashed_tokens_number_felt252: felt252 = self.hashed_tokens_number.read().into();
+            expected_output.append(hashed_tokens_number_felt252 + 2);            
+            expected_output.append(caller_felt252);
+            expected_output.append(token_hash);
             
             for token_hash in tokens_hashes {
-                output.append(token_hash);
-            }
-            
+                expected_output.append(*token_hash);
+            };
+        
+
+            let expected_output_span = expected_output.span();
+
             // with program hash and otput fact_hash can be calculated
-            let fact_hash = calculate_fact_hash(program_hash, output.span());
+            let fact_hash = calculate_fact_hash(program_hash, expected_output_span);
+
             let integrity = Integrity::new();
             // check if fact_hash was registered
             let mut is_verified = false;
             if integrity.is_fact_hash_valid_with_security(fact_hash, SECURITY_BITS) {
                 is_verified = true;
             }
+
+            // let mut output_hash = PoseidonTrait::new();
+
+            // for el in expected_output_span {
+            //     output_hash = output_hash.update(*el);
+            // };
+
+            // let abc: felt252 = output_hash.finalize();
+
+
+            // self.emit(FactHash {fact_hash: fact_hash});
+            
+            // self.emit(Output {output: expected_output_span});
+
+
             assert!(is_verified, "Account with this address did not register valid fact hash of possesing token");
             
-            }
 
             self.users_who_voted.write(caller, true);
+            self.used_tokens_hashes.write(token_hash, true);
+
             if (vote == NO) {
                 self.no_votes.write(self.no_votes.read() + 1_u32);
             }
@@ -185,67 +193,23 @@ use core::poseidon::PoseidonTrait;
             }
 
             self.emit(VoteCast { voter: caller, vote: vote });
-        }
+    }
 
-    //     fn send_ticket(ref self: ContractState, user_address: ContractAddress) -> VoteTicket {
-
-    //     let vote_ticket = VoteTicket {voter: user_address, ticket_number: self.vote_ticket_number.read() };
-    //     self.vote_ticket_number.write(self.vote_ticket_number.read() + 1_u8);
-    //     vote_ticket
-
-    // }
-        fn add_allowed_voters_signatures(ref self: ContractState, signatures: Array<felt252>) {
+        fn add_tokens_hashes(ref self: ContractState, tokens_hashes: Array<felt252>) {
             let caller: ContractAddress = get_caller_address();
-            assert!(caller != self.admin_address.read(), "Only admin can add singatures!");
-            for _signature in signatures {
-                if (!self.allowed_signatures.read(_signature)){
-                    self.allowed_signatures.write(_signature, true);
-                }
-                else {
-                    println!("Signature {} is already added", _signature);
+            assert!(caller != self.admin_address.read(), "Only admin can add tokens hashes!");
+            for token_hash in tokens_hashes {
+                if (true){ // add preventing adding duplicated token hash
+                    self.hashed_tokens.write(self.hashed_tokens_number.read(), token_hash);
+                    self.hashed_tokens_number.write(self.hashed_tokens_number.read() + 1);
                 }
             }
         }
 
-        fn generate_token(ref self: ContractState, signature: felt252) {
-
-            assert!(!self.voting_phase_enabled.read(), "Voting phase is enabled and generating tokens is no longer possible");
-        
-            assert!(self.allowed_signatures.read(signature), "You are not authorized to get a token!");
-
-            // generate tokne basing on partially random assumptions
-
-            let caller = get_caller_address();
-            let timestamp = get_block_timestamp();
-
-            let input1: felt252 = caller.into();
-            let input2: felt252 = timestamp.into();
-
-            let token = PoseidonTrait::new().update(input1).update(input2).finalize();
-            self.signature_to_token.write(signature, token);
-
-            let hashed_token = PoseidonTrait::new().update(token).finalize();
-            self.hashed_tokens.write(self.hashed_tokens_number.read(), hashed_token);
-            self.hashed_tokens_number.write(self.hashed_tokens_number.read() + 1_u32);
-    }
-
-        fn get_token(self: @ContractState, signature: felt252) -> felt252 {
-            self.signature_to_token.read(signature)
-    }
 
         fn get_all_tokens_hashes(self: @ContractState) -> Array<felt252> {
             self._get_all_tokens_hashes()
     }
-
-        fn remove_token(ref self: ContractState, signature: felt252) {
-            self.signature_to_token.write(signature, 0);
-        }
-
-        fn set_voting_phase(ref self: ContractState) {
-            let caller: ContractAddress = get_caller_address();
-            assert!(caller != self.admin_address.read(), "Only admin can set voting phase!");
-            self.voting_phase_enabled.write(true);
-        }
 
 
         // fn check_fact_hash(ref self: ContractState, fact_hash: felt252, sec_bits: u32) -> bool {
@@ -266,7 +230,7 @@ use core::poseidon::PoseidonTrait;
         while i != self.hashed_tokens_number.read() {
             _hashed_tokens.append(self.hashed_tokens.read(i));
             i += 1;
-        }
+        };
         _hashed_tokens
     }
     }
@@ -277,6 +241,11 @@ use core::poseidon::PoseidonTrait;
         fn _assert_user_not_voted(ref self: ContractState, address: ContractAddress) {
             let can_vote: bool = self.users_who_voted.read(address);
             assert!(!can_vote, "USER_ALREADY_VOTED");
+        }
+
+        fn _assert_token_hash_used(ref self: ContractState, token_hash: felt252) {
+            let can_use: bool = self.used_tokens_hashes.read(token_hash);
+            assert!(!can_use, "TOKEN_USED");
         }
     }
 

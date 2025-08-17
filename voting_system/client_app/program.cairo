@@ -1,37 +1,40 @@
 use core::poseidon::PoseidonTrait;
-// use core::poseidon::poseidon_hash_span;
 use core::hash::HashStateTrait;
-//use core::hash::{HashStateTrait, HashStateExTrait};
 
 
 fn main (input: Array<felt252>) -> Array<felt252> {
-    let token = *input.at(0);
-    let token_hash = PoseidonTrait::new().update(token).finalize();
-    // let x = poseidon_hash_span()
+    let user_address: felt252 = *input.at(0);
 
-    let expected_hashes_len = *input.at(1);
-    let mut expected_hashes_len: u32 = expected_hashes_len.try_into().unwrap();
-    expected_hashes_len = expected_hashes_len + 2_u32;
+    let token: felt252 = *input.at(1);
+    let token_hash: felt252 = PoseidonTrait::new().update(token).finalize();
+
+    let tokens_hashes_len: felt252 = *input.at(2);
+    
+    let mut idx_last_token_hash: u32 = tokens_hashes_len.try_into().unwrap();
+    idx_last_token_hash = idx_last_token_hash + 3_u32;
 
     let mut result = false;
+    let mut output: Array<felt252> = ArrayTrait::new();
+    output.append(user_address);
+    output.append(token_hash);
+    // output.append(token);
+    // output.append(token_hash);
 
-    let mut i = 2;
-    while i != expected_hashes_len {
-               
-        let val = *input.at(i);
+    let mut i = 3;
+    while i != idx_last_token_hash {
+
+        let val: felt252 = *input.at(i);
         if (token_hash == val){
             result = true;
         }
         i += 1;
+        output.append(val);
     };
 
-    // let mut result = false;
-    // let hash = PoseidonTrait::new().update_with(pk).finalize();
-    // if (hash == expected_hash){
-    //     result = true;
-    // }
-    // assert!(result);
-    let mut output: Array<felt252> = ArrayTrait::new();
-    result.serialize(ref output);
+
+    assert!(result, "Token hash not included");
+    // let mut output_serialized: Array<felt252> = ArrayTrait::new();
+    // output.serialize(ref output_serialized);
+    // output_serialized
     output
 }

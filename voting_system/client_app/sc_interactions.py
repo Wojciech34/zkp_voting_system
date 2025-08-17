@@ -5,15 +5,26 @@ logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
-SC_REPO_PATH = "/home/wojtek/cairo_projects/tech-zkpdual-cr/voting_system/voting_project"
+SC_REPO_PATH = (
+    "/home/wojtek/cairo_projects/tech-zkpdual-cr/voting_system/voting_project"
+)
 
 
-def add_allowed_signatures(contract_address, allowed_signatures):
-    arguments = ["array![" + ", ".join(allowed_signatures) + "]"]
-    cmd = ["sncast", "invoke", "--contract-address", contract_address, "--function", "add_allowed_voters_signatures", "--arguments", *arguments]
+def add_tokens_hashes(contract_address, tokens_hashes):
+    arguments = ["array![" + ", ".join(tokens_hashes) + "]"]
+    cmd = [
+        "sncast",
+        "invoke",
+        "--contract-address",
+        contract_address,
+        "--function",
+        "add_tokens_hashes",
+        "--arguments",
+        *arguments,
+    ]
 
     try:
-        logging.info("As an admin adding allowed token signatures...")
+        logging.info("As an admin adding allowed token hashes...")
         res = sp.check_output(cmd, stderr=sp.STDOUT, timeout=60)
         logging.info(res.decode())
         return True
@@ -26,10 +37,20 @@ def add_allowed_signatures(contract_address, allowed_signatures):
 
 
 def generate_token(contract_address, signature):
-    cmd = ["sncast", "invoke", "--contract-address", contract_address, "--function", "generate_token", "--arguments", signature]
+    cmd = [
+        "sncast",
+        "invoke",
+        "--contract-address",
+        contract_address,
+        "--function",
+        "generate_token",
+        "--arguments",
+        signature,
+    ]
 
     try:
         logging.info("Generating token...")
+        # breakpoint()
         res = sp.check_output(cmd, stderr=sp.STDOUT, timeout=60)
         logging.info(res.decode())
         return True
@@ -42,7 +63,16 @@ def generate_token(contract_address, signature):
 
 
 def get_token(contract_address, signature):
-    cmd = ["sncast", "call", "--contract-address", contract_address, "--function", "get_token", "--arguments", signature]
+    cmd = [
+        "sncast",
+        "call",
+        "--contract-address",
+        contract_address,
+        "--function",
+        "get_token",
+        "--arguments",
+        signature,
+    ]
 
     try:
         logging.info("Getting token...")
@@ -58,7 +88,14 @@ def get_token(contract_address, signature):
 
 
 def get_all_tokens_hashes(contract_address):
-    cmd = ["sncast", "call", "--contract-address", contract_address, "--function", "get_all_tokens_hashes"]
+    cmd = [
+        "sncast",
+        "call",
+        "--contract-address",
+        contract_address,
+        "--function",
+        "get_all_tokens_hashes",
+    ]
 
     try:
         logging.info("Getting all tokens hashes...")
@@ -74,7 +111,14 @@ def get_all_tokens_hashes(contract_address):
 
 
 def set_voting_phase(contract_address):
-    cmd = ["sncast", "invoke", "--contract-address", contract_address, "--function", "set_voting_phase"]
+    cmd = [
+        "sncast",
+        "invoke",
+        "--contract-address",
+        contract_address,
+        "--function",
+        "set_voting_phase",
+    ]
 
     try:
         logging.info("Setting voting phase...")
@@ -89,8 +133,17 @@ def set_voting_phase(contract_address):
         raise e
 
 
-def vote(contract_address, vote):
-    cmd = ["sncast", "invoke", "--contract-address", contract_address, "--function", "vote", "--arguments", vote]
+def vote(contract_address, token_hash, vote_):
+    cmd = [
+        "sncast",
+        "invoke",
+        "--contract-address",
+        contract_address,
+        "--function",
+        "vote",
+        "--arguments",
+        f"{token_hash},{vote_}",
+    ]
 
     try:
         logging.info("Submitting a vote...")
@@ -106,7 +159,14 @@ def vote(contract_address, vote):
 
 
 def get_vote_status(contract_address):
-    cmd = ["sncast", "call", "--contract-address", contract_address, "--function", "get_vote_status"]
+    cmd = [
+        "sncast",
+        "call",
+        "--contract-address",
+        contract_address,
+        "--function",
+        "get_vote_status",
+    ]
 
     try:
         logging.info("Getting vote status...")
@@ -135,6 +195,7 @@ def declare_sc():
     except Exception as e:
         logging.error(f"Unknown error occured: {e}")
         raise e
+
 
 def deploy_sc(class_hash):
     cmd = ["sncast", "deploy", "--class-hash", class_hash]
