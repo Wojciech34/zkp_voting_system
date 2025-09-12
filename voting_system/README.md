@@ -94,10 +94,10 @@ To run test in client_app directory run
 ```bash
 PYTHONPATH=. python3 tests/example_voting_test.py
 ```
-or
+<!-- or
 ```bash
 PYTHONPATH=. python3 tests/integration_test.py
-```
+``` -->
 **Notes:**
 - You shall change the variable `STONE_CLI_PATH` from file `voting_system/client_app/proof_generator.py` to your own path.
 - You shall change the variable `SC_REPO_PATH` from file `voting_system/client_app/sc_interactions.py` to your own path.

@@ -9,9 +9,7 @@ trait VoteTrait<T> {
 
     fn get_all_tokens_hashes(self: @T) -> Array<felt252>;
 
-    // fn check_fact_hash(ref self: T, fact_hash: felt252, sec_bits: u32) -> bool;
-
-    fn test123(ref self: T, items: Array<felt252>) -> felt252;
+    // fn test123(ref self: T, items: Array<felt252>) -> felt252;
     
 }
 
@@ -102,27 +100,34 @@ use core::poseidon::PoseidonTrait;
             (n_yes, n_no, yes_percentage, no_percentage)
         }
 
-        fn test123(ref self: ContractState, items: Array<felt252>) -> felt252 {
-            let mut output_hash = PoseidonTrait::new();
-            let new_items = items.span();
+        // fn test123(ref self: ContractState, items: Array<felt252>) -> felt252 {
+        //     let mut output_hash = PoseidonTrait::new();
+        //     let new_items = items.span();
 
-            self.emit(Output {output: new_items});
+        //     self.emit(Output {output: new_items});
 
-            for el in new_items {
-                output_hash = output_hash.update(*el);
-                self.emit(FactHash {fact_hash: *el});
-            };
-            let m = output_hash.finalize();
-            self.emit(FactHash {fact_hash: m});
-            // output_hash.finalize()
-            m
+        //     for el in new_items {
+        //         output_hash = output_hash.update(*el);
+        //         self.emit(FactHash {fact_hash: *el});
+        //     };
+        //     let m = output_hash.finalize();
+        //     self.emit(FactHash {fact_hash: m});
+        //     // output_hash.finalize()
+        //     m
             
-        }
+        // }
 
         fn vote(ref self: ContractState, token_hash:felt252, vote: u8) {
             assert!(vote == NO || vote == YES, "Vote_0_OR_1");
             let caller: ContractAddress = get_caller_address();
+            
+
+            // ********************************************************
+            // check that caller address and his token wasnt used in voting
+            // ********************************************************
+
             self._assert_user_not_voted(caller);
+            self._assert_token_hash_not_used(token_hash);
             
             let caller_felt252 : felt252 = caller.into();
 
@@ -137,10 +142,11 @@ use core::poseidon::PoseidonTrait;
             // hash of a program, from which proof should be generated
             let program_hash = 0x42b84f0d9d23d1c67a0271f4e6577b1715214c88f8e7912abb92e6daa4ff58a;
             
-            // expected output of a program, which is [caller address, hashed_token1, hashed_token2 ... hashed_tokenN]
+            // expected output of a program, which is [caller address, user_hashed_token, hashed_token1, hashed_token2 ... hashed_tokenN]
             let tokens_hashes = self._get_all_tokens_hashes().span();
             let mut expected_output: Array<felt252> = ArrayTrait::new();
 
+            // output in proof slightly differs because of the way cairo-vm adds output
             expected_output.append(0);
 
             let hashed_tokens_number_felt252: felt252 = self.hashed_tokens_number.read().into();
@@ -164,20 +170,6 @@ use core::poseidon::PoseidonTrait;
             if integrity.is_fact_hash_valid_with_security(fact_hash, SECURITY_BITS) {
                 is_verified = true;
             }
-
-            // let mut output_hash = PoseidonTrait::new();
-
-            // for el in expected_output_span {
-            //     output_hash = output_hash.update(*el);
-            // };
-
-            // let abc: felt252 = output_hash.finalize();
-
-
-            // self.emit(FactHash {fact_hash: fact_hash});
-            
-            // self.emit(Output {output: expected_output_span});
-
 
             assert!(is_verified, "Account with this address did not register valid fact hash of possesing token");
             
@@ -211,15 +203,6 @@ use core::poseidon::PoseidonTrait;
             self._get_all_tokens_hashes()
     }
 
-
-        // fn check_fact_hash(ref self: ContractState, fact_hash: felt252, sec_bits: u32) -> bool {
-        //     let integrity = Integrity::new();
-        //     let mut ret = true;
-        //     if (!integrity.is_fact_hash_valid_with_security(fact_hash, sec_bits)){
-        //         ret = false;
-        //     }
-        //     ret
-        // }  
     }
 
     #[generate_trait]
@@ -243,7 +226,7 @@ use core::poseidon::PoseidonTrait;
             assert!(!can_vote, "USER_ALREADY_VOTED");
         }
 
-        fn _assert_token_hash_used(ref self: ContractState, token_hash: felt252) {
+        fn _assert_token_hash_not_used(ref self: ContractState, token_hash: felt252) {
             let can_use: bool = self.used_tokens_hashes.read(token_hash);
             assert!(!can_use, "TOKEN_USED");
         }
