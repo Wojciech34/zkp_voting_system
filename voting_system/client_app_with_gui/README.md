@@ -13,6 +13,8 @@ python and necessary libs (Pyqt5)
 
 sncast and correct account imported into file "~/.starknet_accounts/starknet_open_zeppelin_accounts.json"
 
+Edit snfoundry.toml file in order to provide correct url of 
+rpc provider (for blockchain interactions)
 
 Before using app make sure that admin deployed smart contract 
 with voting logic, admin in responsible for providing token 
