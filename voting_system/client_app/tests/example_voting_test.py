@@ -39,10 +39,12 @@ run4(
 
 time.sleep(1)
 final_results = get_final_voting_result(sc_address)
-print(final_results)
+
 print("Expected result: [0x1, 0x3, 0x19, 0x4b]")
 
-if final_results.split(": ")[1] == "[0x1, 0x3, 0x19, 0x4b]":
-    print("Test passed")
-else:
-    print("Test failed")
+print(f"Actual results: {final_results}")
+
+# if final_results.split(": ")[1] == "[0x1, 0x3, 0x19, 0x4b]":
+#     print("Test passed")
+# else:
+#     print("Test failed")

@@ -2,7 +2,7 @@ import subprocess as sp
 import logging
 
 logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s", filename="app.log", filemode="a", force=True
 )
 
 SC_REPO_PATH = (
@@ -36,57 +36,6 @@ def add_tokens_hashes(contract_address, tokens_hashes):
         raise e
 
 
-def generate_token(contract_address, signature):
-    cmd = [
-        "sncast",
-        "invoke",
-        "--contract-address",
-        contract_address,
-        "--function",
-        "generate_token",
-        "--arguments",
-        signature,
-    ]
-
-    try:
-        logging.info("Generating token...")
-        # breakpoint()
-        res = sp.check_output(cmd, stderr=sp.STDOUT, timeout=60)
-        logging.info(res.decode())
-        return True
-    except sp.CalledProcessError as e:
-        logging.error(e.output.decode())
-        raise e
-    except Exception as e:
-        logging.error(f"Unknown error occured: {e}")
-        raise e
-
-
-def get_token(contract_address, signature):
-    cmd = [
-        "sncast",
-        "call",
-        "--contract-address",
-        contract_address,
-        "--function",
-        "get_token",
-        "--arguments",
-        signature,
-    ]
-
-    try:
-        logging.info("Getting token...")
-        res = sp.check_output(cmd, stderr=sp.STDOUT, timeout=60)
-        logging.info(res.decode())
-        return res.decode()
-    except sp.CalledProcessError as e:
-        logging.error(e.output.decode())
-        raise e
-    except Exception as e:
-        logging.error(f"Unknown error occured: {e}")
-        raise e
-
-
 def get_all_tokens_hashes(contract_address):
     cmd = [
         "sncast",
@@ -102,29 +51,6 @@ def get_all_tokens_hashes(contract_address):
         res = sp.check_output(cmd, stderr=sp.STDOUT, timeout=60)
         logging.info(res.decode())
         return res.decode()
-    except sp.CalledProcessError as e:
-        logging.error(e.output.decode())
-        raise e
-    except Exception as e:
-        logging.error(f"Unknown error occured: {e}")
-        raise e
-
-
-def set_voting_phase(contract_address):
-    cmd = [
-        "sncast",
-        "invoke",
-        "--contract-address",
-        contract_address,
-        "--function",
-        "set_voting_phase",
-    ]
-
-    try:
-        logging.info("Setting voting phase...")
-        res = sp.check_output(cmd, stderr=sp.STDOUT, timeout=60)
-        logging.info(res.decode())
-        return True
     except sp.CalledProcessError as e:
         logging.error(e.output.decode())
         raise e

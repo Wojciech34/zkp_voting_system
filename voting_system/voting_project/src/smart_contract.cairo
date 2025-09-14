@@ -9,15 +9,14 @@ trait VoteTrait<T> {
 
     fn get_all_tokens_hashes(self: @T) -> Array<felt252>;
 
-    // fn test123(ref self: T, items: Array<felt252>) -> felt252;
+    fn get_program_hash(self: @T) -> felt252;
+
     
 }
 
 #[starknet::contract]
 mod Vote {
 
-use core::poseidon::PoseidonTrait;
-    use core::hash::HashStateTrait;
     use starknet::ContractAddress;
     use starknet::{get_caller_address};
     use starknet::storage::{
@@ -40,6 +39,7 @@ use core::poseidon::PoseidonTrait;
         admin_address: ContractAddress,
         hashed_tokens: Map::<u32, felt252>,
         hashed_tokens_number: u32,
+        program_hash: felt252,
     }
 
     #[constructor]
@@ -52,6 +52,8 @@ use core::poseidon::PoseidonTrait;
 
         self.admin_address.write(get_caller_address());
         self.hashed_tokens_number.write(0_u32);
+
+        self.program_hash.write(0x42b84f0d9d23d1c67a0271f4e6577b1715214c88f8e7912abb92e6daa4ff58a);
 
     }
 
@@ -85,12 +87,6 @@ use core::poseidon::PoseidonTrait;
         output: Span<felt252>,
     }
 
-    // #[derive(Drop)]
-    // struct VoteTicket {
-    //     voter: ContractAddress,
-    //     ticket_number: u8,
-    // }
-
     #[abi(embed_v0)]
     impl VoteImpl of super::VoteTrait<ContractState> {
         // data returned is in hexadecimal format
@@ -100,22 +96,7 @@ use core::poseidon::PoseidonTrait;
             (n_yes, n_no, yes_percentage, no_percentage)
         }
 
-        // fn test123(ref self: ContractState, items: Array<felt252>) -> felt252 {
-        //     let mut output_hash = PoseidonTrait::new();
-        //     let new_items = items.span();
 
-        //     self.emit(Output {output: new_items});
-
-        //     for el in new_items {
-        //         output_hash = output_hash.update(*el);
-        //         self.emit(FactHash {fact_hash: *el});
-        //     };
-        //     let m = output_hash.finalize();
-        //     self.emit(FactHash {fact_hash: m});
-        //     // output_hash.finalize()
-        //     m
-            
-        // }
 
         fn vote(ref self: ContractState, token_hash:felt252, vote: u8) {
             assert!(vote == NO || vote == YES, "Vote_0_OR_1");
@@ -140,7 +121,7 @@ use core::poseidon::PoseidonTrait;
             let SECURITY_BITS = 32;
 
             // hash of a program, from which proof should be generated
-            let program_hash = 0x42b84f0d9d23d1c67a0271f4e6577b1715214c88f8e7912abb92e6daa4ff58a;
+            let program_hash = self.program_hash.read();
             
             // expected output of a program, which is [caller address, user_hashed_token, hashed_token1, hashed_token2 ... hashed_tokenN]
             let tokens_hashes = self._get_all_tokens_hashes().span();
@@ -202,6 +183,10 @@ use core::poseidon::PoseidonTrait;
         fn get_all_tokens_hashes(self: @ContractState) -> Array<felt252> {
             self._get_all_tokens_hashes()
     }
+
+        fn get_program_hash(self: @ContractState) -> felt252 {
+            self.program_hash.read()
+        }
 
     }
 
